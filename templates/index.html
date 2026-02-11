@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram Influencer Finder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #833ab4 0%, #fd1d1d 50%, #fcb045 100%);
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(131, 58, 180, 0.15);
+        }
+        .instagram-gradient {
+            background: linear-gradient(45deg, #405DE6, #5851DB, #833AB4, #C13584, #E1306C, #FD1D1D, #F56040, #F77737, #FCAF45, #FFDC80);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="gradient-bg text-white shadow-lg">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <i class="fab fa-instagram text-4xl"></i>
+                    <div>
+                        <h1 class="text-2xl font-bold">Instagram Influencer Finder</h1>
+                        <p class="text-sm opacity-90">Discover creators using AI</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div id="stats-badge" class="bg-white/20 rounded-full px-4 py-2 text-sm">
+                        <i class="fas fa-users mr-2"></i>
+                        <span id="total-count">0</span> Influencers
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-white rounded-xl shadow-sm p-4 card-hover transition-all">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Total Found</p>
+                        <p class="text-2xl font-bold text-gray-800" id="stat-total">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                        <i class="fas fa-users text-purple-600"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-4 card-hover transition-all">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">New</p>
+                        <p class="text-2xl font-bold text-green-600" id="stat-new">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                        <i class="fas fa-star text-green-600"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-4 card-hover transition-all">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Contacted</p>
+                        <p class="text-2xl font-bold text-blue-600" id="stat-contacted">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                        <i class="fas fa-envelope text-blue-600"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-4 card-hover transition-all">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Open to Collab</p>
+                        <p class="text-2xl font-bold text-pink-600" id="stat-collab">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-pink-100 rounded-full flex items-center justify-center">
+                        <i class="fas fa-handshake text-pink-600"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Section -->
+        <div class="bg-white rounded-2xl shadow-lg p-6 mb-8">
+            <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                <i class="fas fa-search text-purple-600 mr-3"></i>
+                Find Influencers
+            </h2>
+            
+            <div class="grid md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+                <!-- Keyword -->
+                <div class="lg:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Niche / Keyword</label>
+                    <input type="text" id="keyword" placeholder="e.g., fitness, fashion, travel"
+                        class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                </div>
+                
+                <!-- Country -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                    <select id="country" class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500">
+                        {% for c in countries %}
+                        <option value="{{ c }}" {% if c == "USA" %}selected{% endif %}>{{ c }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Follower Range -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Follower Range</label>
+                    <select id="follower-range" class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500">
+                        {% for range in follower_ranges %}
+                        <option value="{{ range.min }}-{{ range.max }}">{{ range.label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Quantity -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                    <select id="quantity" class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500">
+                        <option value="5">5 influencers</option>
+                        <option value="10" selected>10 influencers</option>
+                        <option value="15">15 influencers</option>
+                        <option value="20">20 influencers</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="flex items-center justify-between">
+                <p class="text-sm text-gray-500">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    AI will generate influencer suggestions based on your criteria
+                </p>
+                <button onclick="searchInfluencers()" id="search-btn"
+                    class="gradient-bg text-white px-8 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity flex items-center">
+                    <i class="fas fa-magic mr-2"></i>
+                    Find Influencers
+                </button>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex space-x-1 mb-4 bg-gray-100 rounded-lg p-1 w-fit">
+            <button onclick="switchTab('influencers')" id="tab-influencers"
+                class="px-6 py-2 rounded-lg font-medium transition-all bg-white text-gray-800 shadow-sm">
+                <i class="fab fa-instagram mr-2"></i>Influencers
+            </button>
+            <button onclick="switchTab('history')" id="tab-history"
+                class="px-6 py-2 rounded-lg font-medium transition-all text-gray-600 hover:text-gray-800">
+                <i class="fas fa-history mr-2"></i>Search History
+            </button>
+        </div>
+
+        <!-- Influencers Tab -->
+        <div id="content-influencers">
+            <!-- Filters -->
+            <div class="bg-white rounded-xl shadow-sm p-4 mb-4 flex flex-wrap items-center gap-4">
+                <div class="flex items-center gap-2">
+                    <label class="text-sm text-gray-600">Filter by:</label>
+                    <select id="filter-country" onchange="loadInfluencers()" class="px-3 py-2 border rounded-lg text-sm">
+                        <option value="">All Countries</option>
+                    </select>
+                    <select id="filter-niche" onchange="loadInfluencers()" class="px-3 py-2 border rounded-lg text-sm">
+                        <option value="">All Niches</option>
+                    </select>
+                    <select id="filter-status" onchange="loadInfluencers()" class="px-3 py-2 border rounded-lg text-sm">
+                        <option value="">All Status</option>
+                        <option value="New">New</option>
+                        <option value="Contacted">Contacted</option>
+                        <option value="Responded">Responded</option>
+                        <option value="Hired">Hired</option>
+                        <option value="Rejected">Rejected</option>
+                    </select>
+                </div>
+                <div class="flex-1"></div>
+                <button onclick="exportCSV()" class="text-sm text-purple-600 hover:text-purple-800 flex items-center">
+                    <i class="fas fa-download mr-1"></i> Export CSV
+                </button>
+                <button onclick="clearAll()" class="text-sm text-red-600 hover:text-red-800 flex items-center">
+                    <i class="fas fa-trash mr-1"></i> Clear All
+                </button>
+            </div>
+
+            <!-- Results Count -->
+            <p class="text-sm text-gray-500 mb-4" id="results-count">Showing 0 influencers</p>
+
+            <!-- Influencers Grid -->
+            <div id="influencers-grid" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Cards will be loaded here -->
+            </div>
+            
+            <!-- Empty State -->
+            <div id="empty-state" class="hidden text-center py-16">
+                <i class="fab fa-instagram text-6xl text-gray-300 mb-4"></i>
+                <h3 class="text-xl font-semibold text-gray-600">No influencers found</h3>
+                <p class="text-gray-500 mt-2">Use the search above to discover influencers</p>
+            </div>
+        </div>
+
+        <!-- History Tab -->
+        <div id="content-history" class="hidden">
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                <table class="w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Keyword</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Country</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Followers</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Results</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-table" class="divide-y divide-gray-200">
+                        <!-- History rows will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Loading Modal -->
+    <div id="loading-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-2xl p-8 text-center max-w-sm mx-4">
+            <div class="w-16 h-16 mx-auto mb-4 relative">
+                <i class="fab fa-instagram text-5xl instagram-gradient pulse-animation"></i>
+            </div>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Finding Influencers...</h3>
+            <p class="text-gray-500">AI is discovering creators in your niche</p>
+            <div class="mt-4 h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div class="h-full gradient-bg animate-pulse" style="width: 100%"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="hidden fixed bottom-4 right-4 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg z-50"></div>
+
+    <script>
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStats();
+            loadInfluencers();
+            loadFilters();
+        });
+
+        // Load statistics
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/stats');
+                const stats = await res.json();
+                document.getElementById('stat-total').textContent = stats.total_influencers;
+                document.getElementById('stat-new').textContent = stats.new;
+                document.getElementById('stat-contacted').textContent = stats.contacted;
+                document.getElementById('stat-collab').textContent = stats.open_to_collaborations;
+                document.getElementById('total-count').textContent = stats.total_influencers;
+            } catch (e) {
+                console.error('Error loading stats:', e);
+            }
+        }
+
+        // Load filter options
+        async function loadFilters() {
+            try {
+                const res = await fetch('/api/filters');
+                const data = await res.json();
+                
+                const countrySelect = document.getElementById('filter-country');
+                countrySelect.innerHTML = '<option value="">All Countries</option>';
+                data.stored_countries.forEach(c => {
+                    countrySelect.innerHTML += `<option value="${c}">${c}</option>`;
+                });
+                
+                const nicheSelect = document.getElementById('filter-niche');
+                nicheSelect.innerHTML = '<option value="">All Niches</option>';
+                data.niches.forEach(n => {
+                    nicheSelect.innerHTML += `<option value="${n}">${n}</option>`;
+                });
+            } catch (e) {
+                console.error('Error loading filters:', e);
+            }
+        }
+
+        // Load influencers
+        async function loadInfluencers() {
+            const country = document.getElementById('filter-country').value;
+            const niche = document.getElementById('filter-niche').value;
+            const status = document.getElementById('filter-status').value;
+            
+            let url = '/api/influencers?limit=100';
+            if (country) url += `&country=${encodeURIComponent(country)}`;
+            if (niche) url += `&niche=${encodeURIComponent(niche)}`;
+            if (status) url += `&status=${encodeURIComponent(status)}`;
+            
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                
+                const grid = document.getElementById('influencers-grid');
+                const emptyState = document.getElementById('empty-state');
+                
+                if (data.influencers.length === 0) {
+                    grid.innerHTML = '';
+                    emptyState.classList.remove('hidden');
+                } else {
+                    emptyState.classList.add('hidden');
+                    grid.innerHTML = data.influencers.map(inf => createInfluencerCard(inf)).join('');
+                }
+                
+                document.getElementById('results-count').textContent = 
+                    `Showing ${data.count} of ${data.total} influencers`;
+            } catch (e) {
+                console.error('Error loading influencers:', e);
+            }
+        }
+
+        // Create influencer card HTML
+        function createInfluencerCard(inf) {
+            const statusColors = {
+                'New': 'bg-green-100 text-green-800',
+                'Contacted': 'bg-blue-100 text-blue-800',
+                'Responded': 'bg-purple-100 text-purple-800',
+                'Hired': 'bg-yellow-100 text-yellow-800',
+                'Rejected': 'bg-red-100 text-red-800'
+            };
+            const statusClass = statusColors[inf.status] || 'bg-gray-100 text-gray-800';
+            
+            return `
+                <div class="bg-white rounded-xl shadow-sm p-5 card-hover transition-all">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-12 h-12 gradient-bg rounded-full flex items-center justify-center text-white font-bold text-lg">
+                                ${inf.username.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                                <a href="${inf.profile_link}" target="_blank" class="font-semibold text-gray-800 hover:text-purple-600">
+                                    @${inf.username}
+                                </a>
+                                <p class="text-sm text-gray-500">${inf.country}</p>
+                            </div>
+                        </div>
+                        <span class="px-2 py-1 text-xs rounded-full ${statusClass}">${inf.status}</span>
+                    </div>
+                    
+                    <p class="text-sm text-gray-600 mb-3 line-clamp-2">${inf.profile_description || ''}</p>
+                    
+                    <div class="flex items-center justify-between text-sm mb-3">
+                        <span class="text-gray-500">
+                            <i class="fas fa-users mr-1"></i>
+                            ${formatFollowers(inf.estimated_followers)}
+                        </span>
+                        <span class="text-purple-600 font-medium">${inf.content_focus || inf.niche}</span>
+                    </div>
+                    
+                    ${inf.open_to_collaborations === 'Yes' ? `
+                        <div class="text-xs text-pink-600 mb-3">
+                            <i class="fas fa-handshake mr-1"></i> Open to collaborations
+                        </div>
+                    ` : ''}
+                    
+                    <div class="flex flex-wrap gap-1 mb-3">
+                        ${(inf.suggested_hashtags || '').split(',').slice(0, 3).map(tag => 
+                            `<span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">#${tag.trim()}</span>`
+                        ).join('')}
+                    </div>
+                    
+                    <div class="flex items-center justify-between pt-3 border-t">
+                        <select onchange="updateStatus('${inf.unique_profile_id}', this.value)" 
+                            class="text-sm border rounded px-2 py-1">
+                            <option value="New" ${inf.status === 'New' ? 'selected' : ''}>New</option>
+                            <option value="Contacted" ${inf.status === 'Contacted' ? 'selected' : ''}>Contacted</option>
+                            <option value="Responded" ${inf.status === 'Responded' ? 'selected' : ''}>Responded</option>
+                            <option value="Hired" ${inf.status === 'Hired' ? 'selected' : ''}>Hired</option>
+                            <option value="Rejected" ${inf.status === 'Rejected' ? 'selected' : ''}>Rejected</option>
+                        </select>
+                        <div class="flex items-center space-x-2">
+                            <a href="${inf.profile_link}" target="_blank" 
+                                class="text-purple-600 hover:text-purple-800 p-2">
+                                <i class="fab fa-instagram"></i>
+                            </a>
+                            <button onclick="deleteInfluencer('${inf.unique_profile_id}')" 
+                                class="text-red-500 hover:text-red-700 p-2">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Format follower count
+        function formatFollowers(count) {
+            const num = parseInt(count) || 0;
+            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+            return num.toString();
+        }
+
+        // Search influencers
+        async function searchInfluencers() {
+            const keyword = document.getElementById('keyword').value.trim();
+            if (!keyword) {
+                showToast('Please enter a keyword/niche', 'error');
+                return;
+            }
+            
+            const country = document.getElementById('country').value;
+            const range = document.getElementById('follower-range').value.split('-');
+            const quantity = document.getElementById('quantity').value;
+            
+            const btn = document.getElementById('search-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Searching...';
+            
+            document.getElementById('loading-modal').classList.remove('hidden');
+            
+            try {
+                const res = await fetch('/api/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        keyword: keyword,
+                        min_followers: parseInt(range[0]),
+                        max_followers: parseInt(range[1]),
+                        country: country,
+                        quantity: parseInt(quantity)
+                    })
+                });
+                
+                const data = await res.json();
+                
+                if (res.ok) {
+                    showToast(`Found ${data.found} influencers, added ${data.added} new ones!`, 'success');
+                    loadInfluencers();
+                    loadStats();
+                    loadFilters();
+                } else {
+                    showToast(data.detail || 'Search failed', 'error');
+                }
+            } catch (e) {
+                showToast('Error: ' + e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-magic mr-2"></i>Find Influencers';
+                document.getElementById('loading-modal').classList.add('hidden');
+            }
+        }
+
+        // Update influencer status
+        async function updateStatus(profileId, status) {
+            try {
+                const res = await fetch(`/api/influencers/${encodeURIComponent(profileId)}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: status })
+                });
+                
+                if (res.ok) {
+                    showToast('Status updated', 'success');
+                    loadStats();
+                }
+            } catch (e) {
+                showToast('Error updating status', 'error');
+            }
+        }
+
+        // Delete influencer
+        async function deleteInfluencer(profileId) {
+            if (!confirm('Delete this influencer?')) return;
+            
+            try {
+                const res = await fetch(`/api/influencers/${encodeURIComponent(profileId)}`, {
+                    method: 'DELETE'
+                });
+                
+                if (res.ok) {
+                    showToast('Influencer deleted', 'success');
+                    loadInfluencers();
+                    loadStats();
+                }
+            } catch (e) {
+                showToast('Error deleting', 'error');
+            }
+        }
+
+        // Clear all
+        async function clearAll() {
+            if (!confirm('Delete ALL influencers? This cannot be undone.')) return;
+            
+            try {
+                const res = await fetch('/api/influencers', { method: 'DELETE' });
+                const data = await res.json();
+                showToast(`Cleared ${data.cleared} influencers`, 'success');
+                loadInfluencers();
+                loadStats();
+                loadFilters();
+            } catch (e) {
+                showToast('Error clearing', 'error');
+            }
+        }
+
+        // Export CSV
+        async function exportCSV() {
+            try {
+                const res = await fetch('/api/influencers?format=csv&limit=500');
+                const data = await res.json();
+                
+                const blob = new Blob([data.csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `influencers_${new Date().toISOString().split('T')[0]}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                showToast(`Exported ${data.count} influencers`, 'success');
+            } catch (e) {
+                showToast('Export failed', 'error');
+            }
+        }
+
+        // Load search history
+        async function loadHistory() {
+            try {
+                const res = await fetch('/api/history');
+                const data = await res.json();
+                
+                const tbody = document.getElementById('history-table');
+                if (data.history.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">No search history</td></tr>';
+                } else {
+                    tbody.innerHTML = data.history.map(h => `
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 text-sm text-gray-600">${new Date(h.created_at).toLocaleDateString()}</td>
+                            <td class="px-6 py-4 font-medium text-gray-800">${h.keyword}</td>
+                            <td class="px-6 py-4 text-sm text-gray-600">${h.country}</td>
+                            <td class="px-6 py-4 text-sm text-gray-600">${formatFollowers(h.min_followers)} - ${formatFollowers(h.max_followers)}</td>
+                            <td class="px-6 py-4 text-sm text-purple-600 font-medium">${h.results_count} found</td>
+                        </tr>
+                    `).join('');
+                }
+            } catch (e) {
+                console.error('Error loading history:', e);
+            }
+        }
+
+        // Switch tabs
+        function switchTab(tab) {
+            document.querySelectorAll('[id^="tab-"]').forEach(t => {
+                t.classList.remove('bg-white', 'text-gray-800', 'shadow-sm');
+                t.classList.add('text-gray-600');
+            });
+            document.querySelectorAll('[id^="content-"]').forEach(c => c.classList.add('hidden'));
+            
+            document.getElementById(`tab-${tab}`).classList.add('bg-white', 'text-gray-800', 'shadow-sm');
+            document.getElementById(`tab-${tab}`).classList.remove('text-gray-600');
+            document.getElementById(`content-${tab}`).classList.remove('hidden');
+            
+            if (tab === 'history') loadHistory();
+        }
+
+        // Show toast notification
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'fixed bottom-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 ' +
+                (type === 'error' ? 'bg-red-600 text-white' : 
+                 type === 'success' ? 'bg-green-600 text-white' : 'bg-gray-800 text-white');
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+    </script>
+</body>
+</html>
