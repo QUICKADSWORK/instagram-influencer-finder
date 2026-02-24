@@ -407,7 +407,7 @@ OUTPUT: Output ONLY a valid JSON array. No markdown, no code fences, no explanat
 
         try:
             msg = client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model="claude-sonnet-4-5-20250929",
                 max_tokens=4096,
                 messages=[{"role": "user", "content": prompt}]
             )
