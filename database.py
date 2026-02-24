@@ -45,9 +45,15 @@ def init_db():
                 niche TEXT,
                 discovery_date TEXT,
                 status TEXT DEFAULT 'New',
+                source TEXT DEFAULT 'ai_suggestion',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        # Migration: add source column if missing
+        try:
+            cursor.execute("ALTER TABLE influencers ADD COLUMN source TEXT DEFAULT 'ai_suggestion'")
+        except:
+            pass
         
         # Search history table
         cursor.execute("""
@@ -74,8 +80,8 @@ def add_influencer(influencer: Dict) -> bool:
                 INSERT OR IGNORE INTO influencers 
                 (unique_profile_id, username, profile_link, estimated_followers, 
                  profile_description, content_focus, suggested_hashtags, 
-                 open_to_collaborations, country, niche, discovery_date, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 open_to_collaborations, country, niche, discovery_date, status, source)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 influencer.get('unique_profile_id', ''),
                 influencer.get('username', ''),
@@ -88,7 +94,8 @@ def add_influencer(influencer: Dict) -> bool:
                 influencer.get('country', ''),
                 influencer.get('niche', ''),
                 influencer.get('discovery_date', datetime.now().strftime('%Y-%m-%d')),
-                influencer.get('status', 'New')
+                influencer.get('status', 'New'),
+                influencer.get('source', 'ai_suggestion')
             ))
             conn.commit()
             return cursor.rowcount > 0

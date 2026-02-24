@@ -120,21 +120,49 @@ def _extract_instagram_profiles(items: List[Dict]) -> List[Dict]:
     return profiles
 
 
-def _search_real_profiles(keyword: str, country: str, quantity: int) -> List[Dict]:
+def _search_real_profiles(keyword: str, country: str, quantity: int,
+                          min_followers: int = 0, max_followers: int = 0) -> List[Dict]:
     """Search Google for real Instagram profiles matching the criteria."""
     all_profiles = []
     seen_usernames = set()
 
+    # Country-specific terms to improve search accuracy
+    country_terms = {
+        "USA": "USA OR \"United States\"",
+        "India": "India OR Indian",
+        "UK": "UK OR Britain OR British",
+        "Australia": "Australia OR Australian",
+        "Canada": "Canada OR Canadian",
+    }
+    country_q = country_terms.get(country, country)
+
+    # Follower range label for search
+    follower_label = ""
+    if max_followers > 0 and max_followers <= 10000:
+        follower_label = "nano influencer"
+    elif max_followers > 0 and max_followers <= 100000:
+        follower_label = "micro influencer"
+    elif max_followers > 0 and max_followers <= 500000:
+        follower_label = "mid-tier influencer"
+    elif min_followers >= 500000:
+        follower_label = "macro influencer"
+
+    # Use varied search strategies to find more diverse real profiles
     search_queries = [
-        f'site:instagram.com "{keyword}" influencer {country}',
-        f'site:instagram.com {keyword} creator {country}',
-        f'site:instagram.com {keyword} {country} followers',
-        f'instagram {keyword} influencer {country} top',
-        f'best {keyword} instagram accounts {country}',
+        # Direct instagram profile searches
+        f'site:instagram.com {keyword} {country_q}',
+        f'site:instagram.com "{keyword}" bio {country_q}',
+        # Listicle and directory searches (these often have real verified handles)
+        f'top {keyword} instagram influencers {country} "@"',
+        f'best {keyword} instagram accounts {country} handles',
+        f'{follower_label} {keyword} instagram {country}' if follower_label else f'{keyword} instagram creator {country}',
+        # Niche-specific
+        f'"{keyword}" instagram creator {country_q} followers',
+        f'{keyword} content creator instagram {country}',
     ]
 
     for query in search_queries:
-        if len(all_profiles) >= quantity:
+        if len(all_profiles) >= quantity + 5:
             break
 
         items = _search_google(query, num=10)
@@ -145,12 +173,12 @@ def _search_real_profiles(keyword: str, country: str, quantity: int) -> List[Dic
                 seen_usernames.add(p["username"])
                 all_profiles.append(p)
 
-    return all_profiles[:quantity + 5]  # Get a few extra for filtering
+    return all_profiles[:quantity + 10]  # Extra buffer for filtering
 
 
 def _enrich_with_ai(raw_profiles: List[Dict], keyword: str, country: str,
                     min_followers: int, max_followers: int) -> List[Dict]:
-    """Use Claude to enrich real profiles with proper descriptions."""
+    """Use Claude to enrich real profiles, verify niche match, and filter by follower range."""
     client = get_client()
     if not client or not raw_profiles:
         return _format_raw_profiles(raw_profiles, keyword, country)
@@ -160,26 +188,34 @@ def _enrich_with_ai(raw_profiles: List[Dict], keyword: str, country: str,
         for p in raw_profiles
     ])
 
-    prompt = f"""I found these REAL Instagram profiles from Google search for "{keyword}" influencers in {country}.
+    follower_range_str = f"{min_followers:,} - {max_followers:,}" if max_followers > 0 else f"{min_followers:,}+"
 
-PROFILES FOUND:
+    prompt = f"""I found these Instagram profiles from Google search. I need you to:
+1. Check if each profile is relevant to the "{keyword}" niche
+2. Estimate their follower count
+3. SKIP profiles that are NOT related to "{keyword}" niche (set relevant: false)
+4. SKIP profiles whose estimated followers are outside {follower_range_str}
+
+TARGET: "{keyword}" creators in {country} with {follower_range_str} followers
+
+PROFILES TO ANALYZE:
 {profiles_text}
 
-For each profile, provide enriched information based on what you know about them.
-If you recognize the creator, provide accurate details. If not, use the snippet to make reasonable inferences.
+For each profile return:
+- username (exact same)
+- relevant (true/false - is this actually a {keyword} creator?)
+- estimated_followers (best estimate as number)
+- in_range (true if followers within {follower_range_str}, false if way off)
+- profile_description (short bio)
+- content_focus (their specific content type)
+- suggested_hashtags (array of 3-5 hashtags)
+- open_to_collaborations (true/false)
 
-Target follower range: {min_followers:,} - {max_followers:,}
+IMPORTANT: Only mark relevant=true if profile genuinely relates to "{keyword}".
+If a profile seems like a business page, spam, or unrelated niche - mark relevant=false.
 
-For EACH profile, return:
-- username (keep the exact username from above)
-- estimated_followers (your best estimate as a number, use the hint if available)
-- profile_description (brief bio based on what you know)
-- content_focus (their main content type)
-- suggested_hashtags (array of 3-5 relevant hashtags)
-- open_to_collaborations (true/false based on their profile type)
-
-OUTPUT: Return ONLY a JSON array, no markdown:
-[{{"username": "...", "estimated_followers": 50000, "profile_description": "...", "content_focus": "...", "suggested_hashtags": ["..."], "open_to_collaborations": true}}]
+Return ONLY JSON array, no markdown:
+[{{"username": "...", "relevant": true, "estimated_followers": 50000, "in_range": true, "profile_description": "...", "content_focus": "...", "suggested_hashtags": ["tag1"], "open_to_collaborations": true}}]
 """
 
     try:
@@ -199,17 +235,27 @@ OUTPUT: Return ONLY a JSON array, no markdown:
         result = []
         for raw in raw_profiles:
             username = raw['username'].lower()
-            enriched_data = enriched_map.get(username, {})
+            e = enriched_map.get(username, {})
 
-            followers = enriched_data.get('estimated_followers', 0)
+            # Skip irrelevant profiles
+            if not e.get('relevant', True):
+                print(f"  Skipping @{username} - not relevant to '{keyword}'")
+                continue
+
+            # Skip profiles way outside follower range
+            if not e.get('in_range', True) and max_followers > 0:
+                print(f"  Skipping @{username} - followers outside range")
+                continue
+
+            followers = e.get('estimated_followers', 0)
             if not followers and raw.get('followers_hint'):
                 followers = _parse_follower_hint(raw['followers_hint'])
 
-            hashtags = enriched_data.get('suggested_hashtags', [])
+            hashtags = e.get('suggested_hashtags', [])
             if isinstance(hashtags, list):
                 hashtags = ', '.join(hashtags)
 
-            collab = enriched_data.get('open_to_collaborations', True)
+            collab = e.get('open_to_collaborations', True)
             if isinstance(collab, bool):
                 collab = 'Yes' if collab else 'No'
 
@@ -218,8 +264,8 @@ OUTPUT: Return ONLY a JSON array, no markdown:
                 'username': raw['username'],
                 'profile_link': raw['profile_link'],
                 'estimated_followers': str(followers or ''),
-                'profile_description': enriched_data.get('profile_description', raw.get('snippet', '')[:100]),
-                'content_focus': enriched_data.get('content_focus', keyword),
+                'profile_description': e.get('profile_description', raw.get('snippet', '')[:100]),
+                'content_focus': e.get('content_focus', keyword),
                 'suggested_hashtags': hashtags,
                 'open_to_collaborations': collab,
                 'country': country,
@@ -229,6 +275,7 @@ OUTPUT: Return ONLY a JSON array, no markdown:
                 'source': 'google_search',
             })
 
+        print(f"  Enrichment: {len(raw_profiles)} found → {len(result)} relevant and in range")
         return result
 
     except Exception as e:
@@ -291,7 +338,8 @@ def generate_influencers(
     # Try Google Search first (real data)
     if _google_search_available():
         print(f"Using Google Search for real Instagram profiles...")
-        raw_profiles = _search_real_profiles(keyword, country, quantity)
+        raw_profiles = _search_real_profiles(keyword, country, quantity,
+                                             min_followers, max_followers)
 
         if raw_profiles:
             print(f"Found {len(raw_profiles)} real profiles, enriching with AI...")
