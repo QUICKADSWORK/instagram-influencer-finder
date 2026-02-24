@@ -155,6 +155,8 @@ async def get_influencers(
     country: Optional[str] = Query(None),
     niche: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
+    min_followers: Optional[int] = Query(None),
+    max_followers: Optional[int] = Query(None),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     format: Optional[str] = Query(None)
@@ -164,6 +166,8 @@ async def get_influencers(
         country=country,
         niche=niche,
         status=status,
+        min_followers=min_followers,
+        max_followers=max_followers,
         limit=limit,
         offset=offset
     )

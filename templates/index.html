@@ -185,24 +185,32 @@
         <!-- Influencers Tab -->
         <div id="content-influencers">
             <!-- Filters -->
-            <div class="bg-white rounded-xl shadow-sm p-4 mb-4 flex flex-wrap items-center gap-4">
-                <div class="flex items-center gap-2">
-                    <label class="text-sm text-gray-600">Filter by:</label>
-                    <select id="filter-country" onchange="loadInfluencers()" class="px-3 py-2 border rounded-lg text-sm">
-                        <option value="">All Countries</option>
-                    </select>
-                    <select id="filter-niche" onchange="loadInfluencers()" class="px-3 py-2 border rounded-lg text-sm">
-                        <option value="">All Niches</option>
-                    </select>
-                    <select id="filter-status" onchange="loadInfluencers()" class="px-3 py-2 border rounded-lg text-sm">
-                        <option value="">All Status</option>
-                        <option value="New">New</option>
-                        <option value="Contacted">Contacted</option>
-                        <option value="Responded">Responded</option>
-                        <option value="Hired">Hired</option>
-                        <option value="Rejected">Rejected</option>
-                    </select>
-                </div>
+            <div class="bg-white rounded-xl shadow-sm p-4 mb-4 flex flex-wrap items-center gap-3">
+                <label class="text-sm text-gray-600 font-medium">Filter:</label>
+                <select id="filter-country" onchange="loadInfluencers()" class="px-3 py-2 border rounded-lg text-sm">
+                    <option value="">All Countries</option>
+                </select>
+                <select id="filter-niche" onchange="loadInfluencers()" class="px-3 py-2 border rounded-lg text-sm">
+                    <option value="">All Niches</option>
+                </select>
+                <select id="filter-status" onchange="loadInfluencers()" class="px-3 py-2 border rounded-lg text-sm">
+                    <option value="">All Status</option>
+                    <option value="New">New</option>
+                    <option value="Contacted">Contacted</option>
+                    <option value="Responded">Responded</option>
+                    <option value="Hired">Hired</option>
+                    <option value="Rejected">Rejected</option>
+                </select>
+                <select id="filter-followers" onchange="applyFollowerFilter()" class="px-3 py-2 border rounded-lg text-sm">
+                    <option value="">All Followers</option>
+                    <option value="0-10000">Nano (&lt;10K)</option>
+                    <option value="10000-50000">Micro (10K-50K)</option>
+                    <option value="50000-100000">Mid (50K-100K)</option>
+                    <option value="100000-500000">Macro (100K-500K)</option>
+                    <option value="500000-0">Mega (500K+)</option>
+                </select>
+                <input type="hidden" id="filter-min-followers" value="">
+                <input type="hidden" id="filter-max-followers" value="">
                 <div class="flex-1"></div>
                 <button onclick="exportCSV()" class="text-sm text-purple-600 hover:text-purple-800 flex items-center">
                     <i class="fas fa-download mr-1"></i> Export CSV
@@ -414,11 +422,15 @@
             const country = document.getElementById('filter-country').value;
             const niche = document.getElementById('filter-niche').value;
             const status = document.getElementById('filter-status').value;
+            const minF = document.getElementById('filter-min-followers')?.value || '';
+            const maxF = document.getElementById('filter-max-followers')?.value || '';
             
             let url = '/api/influencers?limit=100';
             if (country) url += `&country=${encodeURIComponent(country)}`;
             if (niche) url += `&niche=${encodeURIComponent(niche)}`;
             if (status) url += `&status=${encodeURIComponent(status)}`;
+            if (minF) url += `&min_followers=${minF}`;
+            if (maxF) url += `&max_followers=${maxF}`;
             
             try {
                 const res = await fetch(url);
@@ -693,6 +705,15 @@
             } catch (e) {
                 console.error('Error loading history:', e);
             }
+        }
+
+        // Apply follower filter from dropdown
+        function applyFollowerFilter() {
+            const val = document.getElementById('filter-followers').value;
+            const [min, max] = val ? val.split('-') : ['', ''];
+            document.getElementById('filter-min-followers').value = min || '';
+            document.getElementById('filter-max-followers').value = max || '';
+            loadInfluencers();
         }
 
         // Switch tabs

@@ -143,6 +143,15 @@ def get_all_influencers(
         if status:
             query += " AND status = ?"
             params.append(status)
+
+        # Follower filter - estimated_followers stored as text, cast to int
+        if min_followers and min_followers > 0:
+            query += " AND CAST(REPLACE(estimated_followers, ',', '') AS INTEGER) >= ?"
+            params.append(min_followers)
+
+        if max_followers and max_followers > 0:
+            query += " AND CAST(REPLACE(estimated_followers, ',', '') AS INTEGER) <= ?"
+            params.append(max_followers)
         
         query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
         params.extend([limit, offset])
