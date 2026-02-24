@@ -220,6 +220,12 @@ async def clear_all():
     return {"success": True, "cleared": count, "message": f"Cleared {count} influencers"}
 
 
+@app.get("/api/search-mode")
+async def get_search_mode():
+    """Get the current search mode (Google vs AI-only)."""
+    return ai_service.get_search_mode()
+
+
 @app.get("/api/health")
 async def health_check():
     """Health check endpoint."""

@@ -47,8 +47,11 @@
                         <p class="text-sm opacity-90">Discover creators using AI</p>
                     </div>
                 </div>
-                <div class="flex items-center space-x-4">
-                    <div id="stats-badge" class="bg-white/20 rounded-full px-4 py-2 text-sm">
+                <div class="flex items-center space-x-3">
+                    <div id="search-mode-badge" class="rounded-full px-4 py-2 text-sm font-medium cursor-pointer"
+                        onclick="showSetupModal()" title="Click for setup info">
+                    </div>
+                    <div class="bg-white/20 rounded-full px-4 py-2 text-sm">
                         <i class="fas fa-users mr-2"></i>
                         <span id="total-count">0</span> Influencers
                     </div>
@@ -210,12 +213,7 @@
             </div>
 
             <!-- Verification Notice -->
-            <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex items-start gap-2">
-                <i class="fas fa-exclamation-triangle text-amber-500 mt-0.5"></i>
-                <p class="text-sm text-amber-700">
-                    <strong>Note:</strong> These are AI-suggested profiles based on publicly known creators. 
-                    Follower counts are approximate. Always click the Instagram link to verify the profile before reaching out.
-                </p>
+            <div id="accuracy-notice" class="rounded-lg p-3 mb-4 flex items-start gap-2 bg-amber-50 border border-amber-200">
             </div>
 
             <!-- Results Count -->
@@ -269,16 +267,110 @@
         </div>
     </div>
 
+    <!-- Setup Modal -->
+    <div id="setup-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-2xl p-6 max-w-lg mx-4 max-h-[80vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-gray-800">Setup Real Instagram Search</h3>
+                <button onclick="closeSetupModal()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+            </div>
+            <div id="setup-content">
+                <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                    <p class="text-sm text-amber-700">
+                        <strong>Currently using AI-only mode.</strong> Results may not be 100% accurate.
+                        Set up Google Custom Search for real Instagram profiles.
+                    </p>
+                </div>
+                <div class="space-y-4 text-sm text-gray-700">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <p class="font-semibold mb-2">Step 1: Create a Search Engine</p>
+                        <p>Go to <a href="https://programmablesearchengine.google.com/controlpanel/create" target="_blank" class="text-purple-600 underline">Google Programmable Search</a></p>
+                        <p class="mt-1">Name it anything, select "Search the entire web", click Create.</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <p class="font-semibold mb-2">Step 2: Copy Search Engine ID</p>
+                        <p>After creating, copy the <strong>Search Engine ID</strong> (cx value).</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <p class="font-semibold mb-2">Step 3: Enable Custom Search API</p>
+                        <p>Go to <a href="https://console.cloud.google.com/apis/library/customsearch.googleapis.com" target="_blank" class="text-purple-600 underline">Google Cloud Console</a> and enable "Custom Search API".</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <p class="font-semibold mb-2">Step 4: Add to Render Environment</p>
+                        <p>In Render dashboard, add these environment variables:</p>
+                        <code class="block bg-gray-200 rounded p-2 mt-1 text-xs">
+                            GOOGLE_API_KEY = your-google-api-key<br>
+                            GOOGLE_CSE_ID = your-search-engine-id
+                        </code>
+                    </div>
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <p class="text-green-700 text-sm">
+                            <strong>Free tier:</strong> 100 searches/day. That's plenty for influencer discovery!
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div id="setup-done" class="hidden">
+                <div class="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                    <i class="fas fa-check-circle text-green-500 text-3xl mb-2"></i>
+                    <p class="text-green-700 font-semibold">Google Search is active!</p>
+                    <p class="text-green-600 text-sm mt-1">You're getting real Instagram profiles from Google.</p>
+                </div>
+            </div>
+            <button onclick="closeSetupModal()" class="mt-4 w-full gradient-bg text-white py-2 rounded-lg font-medium">
+                Got it
+            </button>
+        </div>
+    </div>
+
     <!-- Toast -->
     <div id="toast" class="hidden fixed bottom-4 right-4 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg z-50"></div>
 
     <script>
+        let searchMode = 'ai_only';
+
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             loadStats();
             loadInfluencers();
             loadFilters();
+            loadSearchMode();
         });
+
+        // Load search mode
+        async function loadSearchMode() {
+            try {
+                const res = await fetch('/api/search-mode');
+                const data = await res.json();
+                searchMode = data.mode;
+                const badge = document.getElementById('search-mode-badge');
+                if (data.accurate) {
+                    badge.className = 'rounded-full px-4 py-2 text-sm font-medium cursor-pointer bg-green-500/30 text-green-100';
+                    badge.innerHTML = '<i class="fas fa-check-circle mr-1"></i>Real Profiles (Google)';
+                } else {
+                    badge.className = 'rounded-full px-4 py-2 text-sm font-medium cursor-pointer bg-amber-500/30 text-amber-100';
+                    badge.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i>AI Mode - Click to setup';
+                }
+            } catch (e) {
+                console.error('Error loading search mode:', e);
+            }
+        }
+
+        function showSetupModal() {
+            const modal = document.getElementById('setup-modal');
+            modal.classList.remove('hidden');
+            if (searchMode === 'google_search') {
+                document.getElementById('setup-content').classList.add('hidden');
+                document.getElementById('setup-done').classList.remove('hidden');
+            } else {
+                document.getElementById('setup-content').classList.remove('hidden');
+                document.getElementById('setup-done').classList.add('hidden');
+            }
+        }
+
+        function closeSetupModal() {
+            document.getElementById('setup-modal').classList.add('hidden');
+        }
 
         // Load statistics
         async function loadStats() {
@@ -335,6 +427,16 @@
                 const grid = document.getElementById('influencers-grid');
                 const emptyState = document.getElementById('empty-state');
                 
+                const notice = document.getElementById('accuracy-notice');
+                const hasGoogleResults = data.influencers.some(inf => inf.source === 'google_search');
+                if (hasGoogleResults) {
+                    notice.className = 'rounded-lg p-3 mb-4 flex items-start gap-2 bg-green-50 border border-green-200';
+                    notice.innerHTML = '<i class="fas fa-check-circle text-green-500 mt-0.5"></i><p class="text-sm text-green-700"><strong>Real profiles</strong> found via Google Search. Click "View on Instagram" to verify and reach out.</p>';
+                } else {
+                    notice.className = 'rounded-lg p-3 mb-4 flex items-start gap-2 bg-amber-50 border border-amber-200';
+                    notice.innerHTML = '<i class="fas fa-exclamation-triangle text-amber-500 mt-0.5"></i><p class="text-sm text-amber-700"><strong>AI suggestions</strong> - profiles may not be accurate. Set up Google Search (click badge above) for real results.</p>';
+                }
+
                 if (data.influencers.length === 0) {
                     grid.innerHTML = '';
                     emptyState.classList.remove('hidden');
