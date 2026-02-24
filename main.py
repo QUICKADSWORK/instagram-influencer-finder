@@ -26,8 +26,18 @@ load_dotenv()
 async def lifespan(app: FastAPI):
     """Application lifespan events."""
     # Startup
-    db.init_db()
-    print("Database initialized")
+    try:
+        db.init_db()
+        print("Database initialized")
+    except Exception as e:
+        print(f"ERROR initializing database: {e}")
+
+    try:
+        mode = ai_service.get_search_mode()
+        print(f"Search mode: {mode.get('label', 'unknown')}")
+    except Exception as e:
+        print(f"Search mode check: {e}")
+
     yield
     # Shutdown
     print("Application shutting down")
