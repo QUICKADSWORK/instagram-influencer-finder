@@ -344,87 +344,116 @@ def generate_influencers(
         if raw_profiles:
             print(f"Found {len(raw_profiles)} real profiles, enriching with AI...")
             enriched = _enrich_with_ai(raw_profiles, keyword, country, min_followers, max_followers)
-            if enriched:
+            if len(enriched) >= quantity:
                 return enriched[:quantity]
+            # Got some real profiles but not enough — top up with AI-generated ones
+            if enriched:
+                top_up = _generate_ai_only(keyword, min_followers, max_followers,
+                                           country, quantity - len(enriched))
+                return (enriched + top_up)[:quantity]
 
-    # Fallback: Claude-only
+    # Fallback: Claude-only (same approach as n8n workflow)
     print(f"Using AI-only mode (configure GOOGLE_CSE_ID for real results)...")
     return _generate_ai_only(keyword, min_followers, max_followers, country, quantity)
 
 
 def _generate_ai_only(keyword: str, min_followers: int, max_followers: int,
                       country: str, quantity: int) -> List[Dict]:
-    """Fallback: Claude generates suggestions (less accurate)."""
+    """Generate influencer profiles using Claude (same approach as the n8n workflow)."""
     client = get_client()
     if not client:
         raise ValueError("No AI client available. Set ANTHROPIC_API_KEY.")
 
     all_results = []
-    remaining = quantity
-    seen = []
+    seen_usernames: List[str] = []
+    max_iterations = 5
+    iteration = 0
 
-    while remaining > 0:
-        batch = min(remaining, 10)
-        exclude = f"\nDO NOT include: {', '.join(seen)}\n" if seen else ""
+    while len(all_results) < quantity and iteration < max_iterations:
+        iteration += 1
+        batch = min(quantity - len(all_results), 10)
+        exclude_line = f"\nDO NOT include these usernames (already used): {', '.join(seen_usernames)}" if seen_usernames else ""
 
-        prompt = f"""You are an Instagram influencer expert. List {batch} REAL, well-known Instagram creators in the "{keyword}" niche from {country}.
+        prompt = f"""You are an Instagram influencer discovery assistant specializing in {keyword}.
 
-FOLLOWER RANGE: {min_followers:,} - {max_followers:,}
-{exclude}
-RULES:
-- ONLY name creators you are CERTAIN exist on Instagram
-- These should be established, recognizable creators in this niche
-- Return FEWER results rather than making up fake profiles
-- Follower counts are your best estimate
+SEARCH PARAMETERS:
+- Target keyword/niche: {keyword}
+- Follower range: {min_followers:,} - {max_followers:,}
+- Location: {country}
+- Number of profiles to generate: {batch}
 
-Return JSON array only:
-[{{"username": "realhandle", "estimated_followers": 50000, "profile_description": "Bio here", "content_focus": "Their niche", "suggested_hashtags": ["tag1", "tag2"], "open_to_collaborations": true}}]
+YOUR TASK:
+Generate a list of exactly {batch} potential Instagram influencer profiles in the {keyword} niche from {country}.{exclude_line}
+
+For each influencer provide:
+1. username (without @, realistic Instagram handle)
+2. estimated_followers (number within the specified range)
+3. profile_description (brief relevant bio)
+4. content_focus (specific sub-niche)
+5. profile_link (https://instagram.com/username)
+6. unique_profile_id (format: {keyword.lower().replace(' ', '_')}_timestamp_5chars)
+7. suggested_hashtags (array of 3-5 relevant hashtags)
+8. open_to_collaborations (boolean)
+
+REQUIREMENTS:
+- Generate EXACTLY {batch} profiles. Not fewer, not more.
+- All profiles must be UNIQUE - no duplicates
+- Vary follower counts across the specified range
+- Include diverse content creators within the niche
+- Usernames should look realistic for the niche and country
+
+OUTPUT: Output ONLY a valid JSON array. No markdown, no code fences, no explanation.
 """
+
         try:
             msg = client.messages.create(
-                model="claude-sonnet-4-5-20250929",
-                max_tokens=8192,
+                model="claude-sonnet-4-20250514",
+                max_tokens=4096,
                 messages=[{"role": "user", "content": prompt}]
             )
-            text = msg.content[0].text
-            text = re.sub(r'```json\n?', '', text)
-            text = re.sub(r'```\n?', '', text)
-            items = json.loads(text.strip())
+            text = msg.content[0].text.strip()
+            text = re.sub(r'^```json\s*', '', text)
+            text = re.sub(r'\s*```\s*$', '', text)
+            items = json.loads(text)
 
             for item in items:
-                u = item.get('username', '').lower()
-                if u and u not in seen:
-                    seen.append(u)
+                u = item.get('username', '').strip().lstrip('@').lower()
+                if not u or u in seen_usernames:
+                    continue
+                seen_usernames.append(u)
 
-                    hashtags = item.get('suggested_hashtags', [])
-                    if isinstance(hashtags, list):
-                        hashtags = ', '.join(hashtags)
-                    collab = item.get('open_to_collaborations', True)
-                    if isinstance(collab, bool):
-                        collab = 'Yes' if collab else 'No'
+                hashtags = item.get('suggested_hashtags', [])
+                if isinstance(hashtags, list):
+                    hashtags = ', '.join(hashtags)
+                collab = item.get('open_to_collaborations', True)
+                if isinstance(collab, bool):
+                    collab = 'Yes' if collab else 'No'
 
-                    all_results.append({
-                        'unique_profile_id': _random_id(keyword),
-                        'username': item.get('username', ''),
-                        'profile_link': f"https://instagram.com/{item.get('username', '')}",
-                        'estimated_followers': str(item.get('estimated_followers', '')),
-                        'profile_description': item.get('profile_description', ''),
-                        'content_focus': item.get('content_focus', keyword),
-                        'suggested_hashtags': hashtags,
-                        'open_to_collaborations': collab,
-                        'country': country,
-                        'niche': keyword,
-                        'discovery_date': datetime.now().strftime('%Y-%m-%d'),
-                        'status': 'New',
-                        'source': 'ai_suggestion',
-                    })
+                followers = item.get('estimated_followers', 0)
+                if isinstance(followers, str):
+                    followers = int(re.sub(r'[^\d]', '', followers) or 0)
 
-            remaining -= batch
+                all_results.append({
+                    'unique_profile_id': item.get('unique_profile_id') or _random_id(keyword),
+                    'username': u,
+                    'profile_link': f"https://instagram.com/{u}",
+                    'estimated_followers': str(followers),
+                    'profile_description': item.get('profile_description', ''),
+                    'content_focus': item.get('content_focus', keyword),
+                    'suggested_hashtags': hashtags,
+                    'open_to_collaborations': collab,
+                    'country': country,
+                    'niche': keyword,
+                    'discovery_date': datetime.now().strftime('%Y-%m-%d'),
+                    'status': 'New',
+                    'source': 'ai_suggestion',
+                })
+
         except Exception as e:
-            print(f"AI batch error: {e}")
+            print(f"AI batch error (iteration {iteration}): {e}")
             if all_results:
                 break
-            raise ValueError(f"Error: {e}")
+            raise ValueError(f"AI generation failed: {e}")
 
     return all_results[:quantity]
 
